@@ -15,7 +15,9 @@ embassy-rp = { version = "0.10.0", features = [ "rp2040", "time-driver", "critic
 embassy-time = "0.5.1"
 cortex-m = "0.7.7"
 cortex-m-rt = "0.7.5"
+embedded-graphics = "0.8.1"
 panic-halt = "1.0.0"
+ssd1306 = "0.10.0"
 
 [profile.release]
 debug = 2
