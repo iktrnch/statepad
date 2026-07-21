@@ -1,0 +1,17 @@
+[package]
+name = "macropad-firmware"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embassy-executor = { version = "0.10.0", features = ["platform-cortex-m", "executor-thread"] }
+embassy-rp = { version = "0.10.0", features = [ "rp2040", "time-driver", "critical-section-impl"] }
+embassy-time = "0.5.1"
+cortex-m = "0.7.7"
+cortex-m-rt = "0.7.5"
+panic-halt = "1.0.0"
+
+[profile.release]
+debug = 2
+lto = true
+opt-level = "s"

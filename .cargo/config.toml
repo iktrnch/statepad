@@ -1,0 +1,5 @@
+[target.thumbv6m-none-eabi]
+runner = "elf2uf2-rs -d"
+
+[build]
+target = "thumbv6m-none-eabi"
