@@ -3,6 +3,7 @@
 
 use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Level, Output, Pull};
+use embassy_time::{Duration, Timer};
 
 use panic_halt as _;
 
@@ -10,14 +11,17 @@ use panic_halt as _;
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     let mut led = Output::new(p.PIN_17, Level::Low);
-    let mut button = Input::new(p.PIN_3, Pull::Up);
+    let button_1 = Input::new(p.PIN_3, Pull::Up);
+    let button_2 = Input::new(p.PIN_4, Pull::Up);
 
     loop {
-        // The button pulls GPIO 3 low while it is held.
-        button.wait_for_low().await;
-        led.set_high();
+        // Each button pulls its input low while it is held.
+        if button_1.is_low() && button_2.is_low() {
+            led.set_high();
+        } else {
+            led.set_low();
+        }
 
-        button.wait_for_high().await;
-        led.set_low();
+        Timer::after(Duration::from_millis(1)).await;
     }
 }
