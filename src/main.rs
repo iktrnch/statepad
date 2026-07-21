@@ -7,7 +7,7 @@ use embassy_rp::i2c::{Config as I2cConfig, I2c};
 use embassy_rp::rom_data::reset_to_usb_boot;
 use embassy_time::{Duration, Instant, Timer};
 use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_6X13},
+    mono_font::{MonoTextStyle, ascii::FONT_7X14},
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Baseline, Text},
@@ -31,7 +31,7 @@ async fn main(_spawner: Spawner) {
     let button_3 = Input::new(p.PIN_3, Pull::Up);
     let button_4 = Input::new(p.PIN_4, Pull::Up);
 
-    let text_style = MonoTextStyle::new(&FONT_6X13, BinaryColor::On);
+    let text_style = MonoTextStyle::new(&FONT_7X14, BinaryColor::On);
     let mut previous_pressed = [false; 3];
     let mut press_order = [0_u64; 3];
     let mut next_press_order = 0_u64;
@@ -81,15 +81,27 @@ async fn main(_spawner: Spawner) {
         if displayed_button != Some(selected_button) {
             display.clear_buffer();
 
-            let label = match selected_button {
+            let button_label = match selected_button {
                 Some(2) => "Button 2",
                 Some(3) => "Button 3",
                 Some(4) => "Button 4",
                 _ => "No button",
             };
 
-            let _ = Text::with_baseline(label, Point::new(0, 4), text_style, Baseline::Top)
-                .draw(&mut display);
+            let _ = Text::with_baseline(
+                "Click any button",
+                Point::new(0, 2),
+                text_style,
+                Baseline::Top,
+            )
+            .draw(&mut display);
+            let _ = Text::with_baseline(
+                button_label,
+                Point::new(0, 32),
+                text_style,
+                Baseline::Bottom,
+            )
+            .draw(&mut display);
             let _ = display.flush();
             displayed_button = Some(selected_button);
         }
