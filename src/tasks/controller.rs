@@ -7,19 +7,17 @@ use embassy_time::{Duration, Timer};
 
 use crate::app::AppRawMutex;
 use crate::domain::{
-    AutomatonRuntime, ControllerEvent, Decision, DisplayModel, HidCommand, Profile, TimerCommand,
+    AutomatonRuntime, ControllerEvent, Decision, DisplayModel, HidCommand, Profile,
 };
 
 type EventReceiver = Receiver<'static, AppRawMutex, ControllerEvent, 16>;
 type HidSender = Sender<'static, AppRawMutex, HidCommand, 8>;
 type DisplaySender = watch::Sender<'static, AppRawMutex, DisplayModel, 1>;
-type TimerSender = Sender<'static, AppRawMutex, TimerCommand, 4>;
 
 struct Controller {
     events: EventReceiver,
     hid: HidSender,
     display: DisplaySender,
-    timer: TimerSender,
     profiles: &'static [Profile],
     automaton: AutomatonRuntime,
     next_bootloader_request_id: u32,
@@ -56,8 +54,7 @@ impl Controller {
     }
 
     async fn forward(&mut self, decision: Decision) {
-        // Ordering is intentional: release/update HID, publish the matching frame,
-        // then arm or cancel the transition deadline.
+        // Ordering is intentional: release/update HID before publishing its matching frame.
         if decision.bootloader {
             let request_id = self.allocate_bootloader_request_id();
             self.pending_bootloader_request = Some(request_id);
@@ -67,9 +64,6 @@ impl Controller {
             if let Some(display) = decision.display {
                 self.display.send(display);
             }
-            if let Some(timer) = decision.timer {
-                self.timer.send(timer).await;
-            }
             return;
         }
 
@@ -78,9 +72,6 @@ impl Controller {
         }
         if let Some(display) = decision.display {
             self.display.send(display);
-        }
-        if let Some(timer) = decision.timer {
-            self.timer.send(timer).await;
         }
     }
 
@@ -96,14 +87,12 @@ pub async fn run(
     events: EventReceiver,
     hid: HidSender,
     display: DisplaySender,
-    timer: TimerSender,
     profiles: &'static [Profile],
 ) {
     Controller {
         events,
         hid,
         display,
-        timer,
         profiles,
         automaton: AutomatonRuntime::new(),
         next_bootloader_request_id: 1,

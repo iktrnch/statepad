@@ -4,9 +4,10 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControllerEvent {
     LeftPressed,
+    LeftReleased,
     RightPressed,
+    RightReleased,
     NextProfile,
     BootloaderRequested,
-    TransitionElapsed { generation: u32 },
     HidReleasedForBootloader { request_id: u32 },
 }

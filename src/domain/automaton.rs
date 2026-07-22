@@ -1,8 +1,8 @@
 //! Synchronous, allocation-free automaton validation and decisions.
 
 use super::{
-    ControllerEvent, Direction, DisplayModel, DisplayPhase, HidCommand, HidOutput, Profile,
-    StateType, TimerCommand, Transition,
+    ControllerEvent, Direction, DisplayModel, DisplayPhase, HidCommand, HidOutput, Profile, State,
+    StateType,
 };
 
 /// Mutable runtime phase, owned only by the controller task.
@@ -12,7 +12,6 @@ pub enum RuntimePhase {
     Stable(StateType),
     Transitioning {
         direction: Direction,
-        generation: u32,
         destination: StateType,
     },
 }
@@ -22,7 +21,6 @@ pub enum RuntimePhase {
 pub struct Decision {
     pub hid: Option<HidCommand>,
     pub display: Option<DisplayModel>,
-    pub timer: Option<TimerCommand>,
     pub bootloader: bool,
 }
 
@@ -30,7 +28,6 @@ pub struct Decision {
 pub struct AutomatonRuntime {
     active_profile_index: usize,
     phase: RuntimePhase,
-    next_transition_generation: u32,
     current_output: HidOutput,
 }
 
@@ -39,26 +36,28 @@ impl AutomatonRuntime {
         Self {
             active_profile_index: 0,
             phase: RuntimePhase::Idle,
-            next_transition_generation: 1,
             current_output: HidOutput::NONE,
         }
     }
 
     pub fn initial_decision(&mut self, profiles: &[Profile]) -> Decision {
-        self.enter_idle(&profiles[self.active_profile_index], None)
+        self.enter_idle(&profiles[self.active_profile_index])
     }
 
     pub fn handle_event(&mut self, event: ControllerEvent, profiles: &[Profile]) -> Decision {
         match event {
             ControllerEvent::LeftPressed => self.request_left(&profiles[self.active_profile_index]),
+            ControllerEvent::LeftReleased => {
+                self.release_left(&profiles[self.active_profile_index])
+            }
             ControllerEvent::RightPressed => {
                 self.request_right(&profiles[self.active_profile_index])
             }
+            ControllerEvent::RightReleased => {
+                self.release_right(&profiles[self.active_profile_index])
+            }
             ControllerEvent::NextProfile => self.switch_profile(profiles),
             ControllerEvent::BootloaderRequested => self.request_bootloader(profiles),
-            ControllerEvent::TransitionElapsed { generation } => {
-                self.complete_transition(generation, &profiles[self.active_profile_index])
-            }
             ControllerEvent::HidReleasedForBootloader { .. } => Decision::default(),
         }
     }
@@ -75,9 +74,8 @@ impl AutomatonRuntime {
             RuntimePhase::Stable(StateType::Idle) => {
                 self.enter_stable_state(profile, StateType::Left)
             }
-            RuntimePhase::Stable(StateType::Left) | RuntimePhase::Transitioning { .. } => {
-                self.enter_idle(profile, None)
-            }
+            RuntimePhase::Stable(StateType::Left) => self.enter_idle(profile),
+            RuntimePhase::Transitioning { .. } => Decision::default(),
         }
     }
 
@@ -93,13 +91,20 @@ impl AutomatonRuntime {
             RuntimePhase::Stable(StateType::Idle) => {
                 self.enter_stable_state(profile, StateType::Right)
             }
-            RuntimePhase::Stable(StateType::Right) | RuntimePhase::Transitioning { .. } => {
-                self.enter_idle(profile, None)
-            }
+            RuntimePhase::Stable(StateType::Right) => self.enter_idle(profile),
+            RuntimePhase::Transitioning { .. } => Decision::default(),
         }
     }
 
-    pub fn enter_idle(&mut self, profile: &Profile, timer: Option<TimerCommand>) -> Decision {
+    pub fn release_left(&mut self, profile: &Profile) -> Decision {
+        self.complete_transition(Direction::RightToLeft, profile)
+    }
+
+    pub fn release_right(&mut self, profile: &Profile) -> Decision {
+        self.complete_transition(Direction::LeftToRight, profile)
+    }
+
+    pub fn enter_idle(&mut self, profile: &Profile) -> Decision {
         debug_assert_eq!(profile.idle.kind, StateType::Idle);
         debug_assert_eq!(profile.idle.output, HidOutput::NONE);
         self.phase = RuntimePhase::Idle;
@@ -107,14 +112,13 @@ impl AutomatonRuntime {
         Decision {
             hid: Some(HidCommand::ReleaseAll),
             display: Some(self.display_model(profile)),
-            timer,
             bootloader: false,
         }
     }
 
     pub fn enter_stable_state(&mut self, profile: &Profile, destination: StateType) -> Decision {
         if destination == StateType::Idle {
-            return self.enter_idle(profile, None);
+            return self.enter_idle(profile);
         }
 
         let state = profile.state(destination);
@@ -124,7 +128,6 @@ impl AutomatonRuntime {
         Decision {
             hid: Some(HidCommand::SetOutput(state.output)),
             display: Some(self.display_model(profile)),
-            timer: None,
             bootloader: false,
         }
     }
@@ -133,66 +136,55 @@ impl AutomatonRuntime {
         &mut self,
         profile: &Profile,
         direction: Direction,
-        transition: Transition,
+        transition: State,
     ) -> Decision {
-        let generation = self.allocate_generation();
+        let expected_destination = match direction {
+            Direction::LeftToRight => StateType::Right,
+            Direction::RightToLeft => StateType::Left,
+        };
+        debug_assert_eq!(transition.kind, expected_destination);
         self.phase = RuntimePhase::Transitioning {
             direction,
-            generation,
-            destination: transition.destination,
+            destination: transition.kind,
         };
         self.current_output = transition.output;
         Decision {
             hid: Some(HidCommand::SetOutput(transition.output)),
             display: Some(self.display_model(profile)),
-            timer: Some(TimerCommand::Start {
-                generation,
-                duration_ms: transition.duration_ms,
-            }),
             bootloader: false,
         }
     }
 
-    pub fn complete_transition(&mut self, generation: u32, profile: &Profile) -> Decision {
+    pub fn complete_transition(
+        &mut self,
+        released_direction: Direction,
+        profile: &Profile,
+    ) -> Decision {
         match self.phase {
             RuntimePhase::Transitioning {
-                generation: active_generation,
+                direction,
                 destination,
-                ..
-            } if generation == active_generation => self.enter_stable_state(profile, destination),
+            } if direction == released_direction => self.enter_stable_state(profile, destination),
             _ => Decision::default(),
         }
     }
 
     pub fn switch_profile(&mut self, profiles: &[Profile]) -> Decision {
-        let timer = self.cancel_transition();
+        self.cancel_transition();
         self.active_profile_index = (self.active_profile_index + 1) % profiles.len();
-        self.enter_idle(&profiles[self.active_profile_index], timer)
+        self.enter_idle(&profiles[self.active_profile_index])
     }
 
-    pub fn cancel_transition(&mut self) -> Option<TimerCommand> {
-        let command = match self.phase {
-            RuntimePhase::Transitioning { generation, .. } => {
-                Some(TimerCommand::Cancel { generation })
-            }
-            _ => None,
-        };
+    pub fn cancel_transition(&mut self) {
         self.phase = RuntimePhase::Idle;
-        command
     }
 
     pub fn request_bootloader(&mut self, profiles: &[Profile]) -> Decision {
-        let timer = self.cancel_transition();
+        self.cancel_transition();
         let profile = &profiles[self.active_profile_index];
-        let mut decision = self.enter_idle(profile, timer);
+        let mut decision = self.enter_idle(profile);
         decision.bootloader = true;
         decision
-    }
-
-    fn allocate_generation(&mut self) -> u32 {
-        let generation = self.next_transition_generation;
-        self.next_transition_generation = self.next_transition_generation.wrapping_add(1);
-        generation
     }
 
     fn display_model(&self, profile: &Profile) -> DisplayModel {

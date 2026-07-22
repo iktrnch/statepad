@@ -8,7 +8,7 @@ pub enum StateType {
     Right,
 }
 
-/// Direction of a timed transition.
+/// Direction of a button-held transition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
     LeftToRight,
@@ -115,7 +115,10 @@ impl HidOutput {
     }
 }
 
-/// One stable state in a profile.
+/// One complete profile output state.
+///
+/// For transition slots, `kind` is the stable state entered when the initiating
+/// button is released.
 #[derive(Clone, Copy, Debug)]
 pub struct State {
     pub kind: StateType,
@@ -128,32 +131,14 @@ impl State {
     }
 }
 
-/// Timed output played before entering a stable destination.
-#[derive(Clone, Copy, Debug)]
-pub struct Transition {
-    pub output: HidOutput,
-    pub destination: StateType,
-    pub duration_ms: u32,
-}
-
-impl Transition {
-    pub const fn new(output: HidOutput, destination: StateType, duration_ms: u32) -> Self {
-        Self {
-            output,
-            destination,
-            duration_ms,
-        }
-    }
-}
-
 /// Fixed profile layout used by the automaton.
 pub struct Profile {
     pub name: &'static str,
     pub idle: State,
     pub left: State,
     pub right: State,
-    pub transition_lr: Option<Transition>,
-    pub transition_rl: Option<Transition>,
+    pub transition_lr: Option<State>,
+    pub transition_rl: Option<State>,
 }
 
 impl Profile {

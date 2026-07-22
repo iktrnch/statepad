@@ -1,6 +1,4 @@
-use crate::domain::{
-    HidOutput, Keystrokes, Profile, State, StateType, Transition, keycodes, mouse_buttons,
-};
+use crate::domain::{HidOutput, Keystrokes, Profile, State, StateType, keycodes, mouse_buttons};
 
 /// Moonflower, Sunflower, Wild Rose, Sugar Cane
 const ECLIPSE_ROSE_CANE: Profile = Profile {
@@ -14,21 +12,19 @@ const ECLIPSE_ROSE_CANE: Profile = Profile {
         StateType::Right,
         HidOutput::new(Keystrokes::one(keycodes::S), mouse_buttons::LEFT),
     ),
-    transition_lr: Some(Transition::new(
+    transition_lr: Some(State::new(
+        StateType::Right,
         HidOutput::new(
             Keystrokes::two(keycodes::W, keycodes::D),
             mouse_buttons::NONE,
         ),
-        StateType::Right,
-        2_000,
     )),
-    transition_rl: Some(Transition::new(
+    transition_rl: Some(State::new(
+        StateType::Left,
         HidOutput::new(
             Keystrokes::two(keycodes::W, keycodes::A),
             mouse_buttons::NONE,
         ),
-        StateType::Left,
-        2_000,
     )),
 };
 

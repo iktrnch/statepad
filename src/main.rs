@@ -13,7 +13,7 @@ use embassy_rp::i2c::{Config as I2cConfig, I2c};
 
 use panic_halt as _;
 
-use app::{CONTROLLER_EVENTS, DISPLAY_MODELS, HID_COMMANDS, TIMER_COMMANDS};
+use app::{CONTROLLER_EVENTS, DISPLAY_MODELS, HID_COMMANDS};
 use profiles::PROFILES;
 
 #[embassy_executor::main]
@@ -51,18 +51,12 @@ async fn main(spawner: Spawner) {
     );
     // Display task
     spawner.spawn(tasks::display::run(i2c, display_receiver).expect("display task pool exhausted"));
-    // Timer task
-    spawner.spawn(
-        tasks::timer::run(TIMER_COMMANDS.receiver(), CONTROLLER_EVENTS.sender())
-            .expect("timer task pool exhausted"),
-    );
     // Controller task
     spawner.spawn(
         tasks::controller::run(
             CONTROLLER_EVENTS.receiver(),
             HID_COMMANDS.sender(),
             DISPLAY_MODELS.sender(),
-            TIMER_COMMANDS.sender(),
             &PROFILES,
         )
         .expect("controller task pool exhausted"),

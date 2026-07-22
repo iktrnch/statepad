@@ -9,10 +9,3 @@ pub enum HidCommand {
     ReleaseAll,
     ReleaseForBootloader { request_id: u32 },
 }
-
-/// Commands exclusively consumed by the transition-timer actor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TimerCommand {
-    Start { generation: u32, duration_ms: u32 },
-    Cancel { generation: u32 },
-}

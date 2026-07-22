@@ -4,7 +4,7 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::watch::Watch;
 
-use crate::domain::{ControllerEvent, DisplayModel, HidCommand, TimerCommand};
+use crate::domain::{ControllerEvent, DisplayModel, HidCommand};
 
 /// Mutex used by every application mailbox.
 ///
@@ -14,14 +14,11 @@ pub type AppRawMutex = CriticalSectionRawMutex;
 
 pub type ControllerEventChannel = Channel<AppRawMutex, ControllerEvent, 16>;
 pub type HidCommandChannel = Channel<AppRawMutex, HidCommand, 8>;
-pub type TimerCommandChannel = Channel<AppRawMutex, TimerCommand, 4>;
 pub type DisplayWatch = Watch<AppRawMutex, DisplayModel, 1>;
 
 /// Ordered, multi-producer application input events.
 pub static CONTROLLER_EVENTS: ControllerEventChannel = Channel::new();
 /// Ordered controller-to-HID commands.
 pub static HID_COMMANDS: HidCommandChannel = Channel::new();
-/// Ordered controller-to-timer commands.
-pub static TIMER_COMMANDS: TimerCommandChannel = Channel::new();
 /// Latest-value display state; stale frames may be overwritten.
 pub static DISPLAY_MODELS: DisplayWatch = Watch::new();

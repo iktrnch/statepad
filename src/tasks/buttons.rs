@@ -13,27 +13,52 @@ type EventSender = Sender<'static, AppRawMutex, ControllerEvent, 16>;
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const BOOTLOADER_HOLD: Duration = Duration::from_secs(5);
 
-async fn side_button(mut button: Input<'static>, events: EventSender, event: ControllerEvent) -> ! {
+async fn side_button(
+    mut button: Input<'static>,
+    events: EventSender,
+    pressed: ControllerEvent,
+    released: ControllerEvent,
+) -> ! {
     loop {
         // RP2040 GPIO edge waits sleep on the GPIO interrupt future; this is not polling.
         button.wait_for_falling_edge().await;
         Timer::after(DEBOUNCE).await;
         if button.is_low() {
-            events.send(event).await;
-            button.wait_for_high().await;
-            Timer::after(DEBOUNCE).await;
+            events.send(pressed).await;
+
+            // Require a stably released level before completing a held transition.
+            loop {
+                button.wait_for_high().await;
+                Timer::after(DEBOUNCE).await;
+                if button.is_high() {
+                    events.send(released).await;
+                    break;
+                }
+            }
         }
     }
 }
 
 #[embassy_executor::task]
 pub async fn left(button: Input<'static>, events: EventSender) {
-    side_button(button, events, ControllerEvent::LeftPressed).await;
+    side_button(
+        button,
+        events,
+        ControllerEvent::LeftPressed,
+        ControllerEvent::LeftReleased,
+    )
+    .await;
 }
 
 #[embassy_executor::task]
 pub async fn right(button: Input<'static>, events: EventSender) {
-    side_button(button, events, ControllerEvent::RightPressed).await;
+    side_button(
+        button,
+        events,
+        ControllerEvent::RightPressed,
+        ControllerEvent::RightReleased,
+    )
+    .await;
 }
 
 #[embassy_executor::task]
