@@ -4,6 +4,7 @@
 mod app;
 mod domain;
 mod hardware;
+mod profiles;
 mod tasks;
 
 use embassy_executor::Spawner;
@@ -12,7 +13,8 @@ use embassy_rp::i2c::{Config as I2cConfig, I2c};
 
 use panic_halt as _;
 
-use app::{CONTROLLER_EVENTS, DISPLAY_MODELS, HID_COMMANDS, PROFILES, TIMER_COMMANDS};
+use app::{CONTROLLER_EVENTS, DISPLAY_MODELS, HID_COMMANDS, TIMER_COMMANDS};
+use profiles::PROFILES;
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
