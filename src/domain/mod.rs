@@ -5,6 +5,7 @@ mod command;
 mod display_model;
 mod event;
 mod profile;
+mod system;
 
 pub use automaton::{AutomatonRuntime, Decision};
 pub use command::HidCommand;
@@ -13,3 +14,4 @@ pub use event::ControllerEvent;
 pub use profile::{
     Direction, HidOutput, Keystrokes, Profile, State, StateType, keycodes, mouse_buttons,
 };
+pub use system::{FirmwareError, SystemStatus};

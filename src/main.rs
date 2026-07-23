@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::panic::PanicInfo;
+
 mod app;
 mod domain;
 mod hardware;
@@ -11,14 +13,24 @@ use embassy_executor::Spawner;
 use embassy_rp::gpio::{Input, Pull};
 use embassy_rp::i2c::{Config as I2cConfig, I2c};
 
-use panic_halt as _;
-
 use app::{CONTROLLER_EVENTS, DISPLAY_MODELS, HID_COMMANDS};
 use profiles::PROFILES;
+
+#[panic_handler]
+fn panic(_info: &PanicInfo<'_>) -> ! {
+    hardware::panic_led::light();
+    tasks::display::show_panic();
+    cortex_m::interrupt::disable();
+    loop {
+        cortex_m::asm::nop();
+    }
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
+
+    hardware::panic_led::init(peripherals.PIN_17);
 
     // Init buttons
     let preset_button = Input::new(peripherals.PIN_2, Pull::Up);
@@ -50,7 +62,10 @@ async fn main(spawner: Spawner) {
         .expect("HID task pool exhausted"),
     );
     // Display task
-    spawner.spawn(tasks::display::run(i2c, display_receiver).expect("display task pool exhausted"));
+    spawner.spawn(
+        tasks::display::run(i2c, display_receiver, CONTROLLER_EVENTS.sender())
+            .expect("display task pool exhausted"),
+    );
     // Controller task
     spawner.spawn(
         tasks::controller::run(

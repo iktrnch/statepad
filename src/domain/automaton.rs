@@ -58,7 +58,9 @@ impl AutomatonRuntime {
             }
             ControllerEvent::NextProfile => self.switch_profile(profiles),
             ControllerEvent::BootloaderRequested => self.request_bootloader(profiles),
-            ControllerEvent::HidReleasedForBootloader { .. } => Decision::default(),
+            ControllerEvent::FatalError(_)
+            | ControllerEvent::DisplayPresented { .. }
+            | ControllerEvent::HidReleasedForBootloader { .. } => Decision::default(),
         }
     }
 
@@ -193,7 +195,7 @@ impl AutomatonRuntime {
             RuntimePhase::Stable(state) => DisplayPhase::Stable(state),
             RuntimePhase::Transitioning { direction, .. } => DisplayPhase::Transitioning(direction),
         };
-        DisplayModel {
+        DisplayModel::Application {
             profile_name: profile.name,
             phase,
             output: self.current_output,

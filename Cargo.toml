@@ -19,7 +19,6 @@ embassy-usb = "0.6.0"
 cortex-m = "0.7.7"
 cortex-m-rt = "0.7.5"
 embedded-graphics = "0.8.1"
-panic-halt = "1.0.0"
 portable-atomic = { version = "1.14.0", features = ["critical-section"] }
 ssd1306 = "0.10.0"
 static_cell = "2.1.1"

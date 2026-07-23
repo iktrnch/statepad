@@ -149,4 +149,18 @@ impl Profile {
             StateType::Right => &self.right,
         }
     }
+
+    /// Validate fixed state and transition destinations before the controller starts.
+    pub fn is_valid(&self) -> bool {
+        self.idle.kind == StateType::Idle
+            && self.idle.output == HidOutput::NONE
+            && self.left.kind == StateType::Left
+            && self.right.kind == StateType::Right
+            && self
+                .transition_lr
+                .is_none_or(|state| state.kind == StateType::Right)
+            && self
+                .transition_rl
+                .is_none_or(|state| state.kind == StateType::Left)
+    }
 }
